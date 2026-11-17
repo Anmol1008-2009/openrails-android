@@ -2,14 +2,14 @@
 
 An experimental, community-style Android port seed for
 [Open Rails](https://openrails.org/) — the open-source train simulator.
-This is **not** a working simulator yet. It is a runnable MonoGame/.NET 8
+This is **not** a working simulator yet. It is a runnable MonoGame/.NET 10
 Android baseline plus CI that produces an installable debug APK.
 
 ## Status
 
 | Piece | State |
 | --- | --- |
-| MonoGame + .NET 8 Android app | working (rotating cube) |
+| MonoGame + .NET 10 Android app | working (rotating cube) |
 | GitHub Actions debug APK build | working |
 | Open Rails content parsing (.trk/.eng/.wag/.s/.ace) | not started |
 | 3D route/rolling-stock rendering | not started |
@@ -26,7 +26,7 @@ Actions is billed in **minutes**, and it has a 6-hour per-job cap.
 
 ## Build locally
 
-Requires .NET 8 SDK, JDK 17, and Android SDK (API 34):
+Requires .NET 10 SDK, JDK 17, and Android SDK (API 34):
 
 ```bash
 dotnet workload install android
