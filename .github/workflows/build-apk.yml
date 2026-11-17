@@ -55,6 +55,14 @@ jobs:
       - name: Build debug APK
         run: dotnet build -c Debug -p:AndroidPackageFormat=apk
 
+      - name: Verify APK manifest
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME}}"
+          AAPT2="$(ls -d "$SDK"/build-tools/*/aapt2 | sort -V | tail -n1)"
+          APK="$(ls bin/Debug/net10.0-android36.0/*-Signed.apk | head -n1)"
+          "$AAPT2" dump badging "$APK" | grep -E "^(package|sdkVersion|targetSdkVersion|launchable-activity|native-code)"
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
