@@ -41,8 +41,10 @@ Actions is billed in **minutes**, and it has a 6-hour per-job cap.
 The debug build now logs every startup step and shows failures on screen.
 
 - On-device log: `/sdcard/Android/data/org.openrails.android/files/startup.log`
-- If startup throws, the exception and that log are displayed in a scrollable,
-  selectable text view instead of a blank crash.
+- If startup throws, the exception and log are shown with **Copy log** and
+  **Save to Downloads** (`/sdcard/Download/openrails-startup.log`).
+- Wireless-debugging pairing only stays open while its dialog is on screen, so
+  use the on-screen log/clipboard if you cannot keep it open.
 - `adb logcat` (from Termux: `pkg install android-tools`, then Developer
   options → Wireless debugging → `adb pair` / `adb connect`):
 

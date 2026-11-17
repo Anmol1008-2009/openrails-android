@@ -1,8 +1,10 @@
 using System;
 using System.IO;
 using Android.App;
+using Android.Content;
 using Android.Content.PM;
 using Android.OS;
+using Android.Provider;
 using Android.Runtime;
 using Android.Util;
 using Android.Views;
@@ -77,18 +79,77 @@ public class MainActivity : AndroidGameActivity
 
     private void ShowError(string text)
     {
-        var tv = new TextView(this)
+        var full = text + "\n\n--- startup.log ---\n" + SafeReadLog();
+        var savedPath = TrySaveToDownloads("openrails-startup.log", full);
+
+        var layout = new LinearLayout(this) { Orientation = Orientation.Vertical };
+
+        var copy = new Button(this) { Text = "Copy log" };
+        copy.Click += (_, _) =>
         {
-            Text = text + "\n\n--- startup.log ---\n" + SafeReadLog(),
-            TextSize = 11f,
+            var clipboard = GetSystemService(ClipboardService) as ClipboardManager;
+            if (clipboard is not null)
+            {
+                clipboard.PrimaryClip = ClipData.NewPlainText("Open Rails log", full);
+                Toast.MakeText(this, "Log copied", ToastLength.Short)?.Show();
+            }
         };
+        layout.AddView(copy);
+
+        if (savedPath is not null)
+        {
+            var saved = new TextView(this) { Text = "Saved: " + savedPath, TextSize = 10f };
+            saved.SetTextColor(global::Android.Graphics.Color.LightGreen);
+            layout.AddView(saved);
+        }
+
+        var tv = new TextView(this) { Text = full, TextSize = 11f };
         tv.SetTextIsSelectable(true);
         tv.SetTextColor(global::Android.Graphics.Color.White);
 
         var scroll = new ScrollView(this);
         scroll.AddView(tv);
-        scroll.SetBackgroundColor(global::Android.Graphics.Color.Black);
-        SetContentView(scroll);
+        layout.AddView(scroll);
+
+        layout.SetBackgroundColor(global::Android.Graphics.Color.Black);
+        SetContentView(layout);
+    }
+
+    private string? TrySaveToDownloads(string name, string content)
+    {
+        try
+        {
+            if (Build.VERSION.SdkInt < BuildVersionCodes.Q)
+            {
+                return null;
+            }
+
+            var values = new ContentValues();
+            values.Put(MediaStore.MediaColumns.DisplayName, name);
+            values.Put(MediaStore.MediaColumns.MimeType, "text/plain");
+            values.Put(MediaStore.MediaColumns.RelativePath, global::Android.OS.Environment.DirectoryDownloads);
+
+            var uri = ContentResolver?.Insert(MediaStore.Downloads.ExternalContentUri!, values);
+            if (uri is null)
+            {
+                return null;
+            }
+
+            using var stream = ContentResolver!.OpenOutputStream(uri);
+            if (stream is null)
+            {
+                return null;
+            }
+
+            using var writer = new StreamWriter(stream);
+            writer.Write(content);
+            return "/sdcard/Download/" + name;
+        }
+        catch (Exception ex)
+        {
+            Log.Warn(Tag, "saving log to Downloads failed: " + ex.Message);
+            return null;
+        }
     }
 
     private string SafeReadLog()
