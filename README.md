@@ -11,9 +11,21 @@ Android baseline plus CI that produces an installable debug APK.
 | --- | --- |
 | MonoGame + .NET 10 Android app | working (rotating cube) |
 | GitHub Actions debug APK build | working |
-| Open Rails content parsing (.trk/.eng/.wag/.s/.ace) | not started |
+| Content parsers: `.trk`, `.eng`, `.wag`, `.con` | implemented, 11 unit tests |
+| `.s` shape / `.ace` texture parsing | not started |
 | 3D route/rolling-stock rendering | not started |
 | Touch/cab controls | not started |
+
+## Tests
+
+The portable content core (`core/OpenRails.Core`) is plain .NET 10 with no
+Android or MonoGame dependencies, so it runs anywhere:
+
+```bash
+dotnet run --project tests/OpenRails.Core.Tests/OpenRails.Core.Tests.csproj -c Release
+```
+
+CI runs this in the `test` job on every push, independently of the APK job.
 
 ## Build in CI
 

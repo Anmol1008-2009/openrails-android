@@ -27,4 +27,8 @@
     <PackageReference Include="MonoGame.Framework.Android" Version="3.8.6.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="core/OpenRails.Core/OpenRails.Core.csproj" />
+  </ItemGroup>
+
 </Project>
