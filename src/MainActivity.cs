@@ -83,11 +83,11 @@ public class MainActivity : AndroidGameActivity
             TextSize = 11f,
         };
         tv.SetTextIsSelectable(true);
-        tv.SetTextColor(Android.Graphics.Color.White);
+        tv.SetTextColor(global::Android.Graphics.Color.White);
 
         var scroll = new ScrollView(this);
         scroll.AddView(tv);
-        scroll.SetBackgroundColor(Android.Graphics.Color.Black);
+        scroll.SetBackgroundColor(global::Android.Graphics.Color.Black);
         SetContentView(scroll);
     }
 
