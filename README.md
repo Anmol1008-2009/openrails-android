@@ -5,6 +5,11 @@ An experimental, community-style Android port seed for
 This is **not** a working simulator yet. It is a runnable MonoGame/.NET 10
 Android baseline plus CI that produces an installable debug APK.
 
+## Resuming work
+
+Read [`docs/SESSION-STATE.md`](docs/SESSION-STATE.md) first — it records current state,
+device/adb details, packaging gotchas, and the next steps.
+
 ## Status
 
 | Piece | State |
