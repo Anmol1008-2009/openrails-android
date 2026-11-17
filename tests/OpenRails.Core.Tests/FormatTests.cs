@@ -25,6 +25,40 @@ public class FormatTests
     }
 
     [Fact]
+    public void Reads_route_track_nodes()
+    {
+        var route = RouteFile.Parse(
+            """
+            SIMISA@@@@@@@@@@JINX0T1t______
+            Tr_RouteFile (
+                RouteID ( USA1 )
+                TrackNode (
+                    Position ( 100.5 -20.25 300 )
+                )
+                TrackNode (
+                    Position ( 200 0 400 )
+                )
+                TrackNode (
+                    Position ( abc 5 6 )
+                )
+            )
+            """);
+
+        var nodes = route.TrackNodePositions;
+        Assert.Equal(3, nodes.Count);
+        Assert.Equal((100.5f, -20.25f, 300f), nodes[0]);
+        Assert.Equal((200f, 0f, 400f), nodes[1]);
+        Assert.Equal((0f, 5f, 6f), nodes[2]);
+    }
+
+    [Fact]
+    public void Route_without_nodes_has_empty_positions()
+    {
+        var route = RouteFile.Parse("Tr_RouteFile ( Name ( X ) )");
+        Assert.Empty(route.TrackNodePositions);
+    }
+
+    [Fact]
     public void Reads_engine_file()
     {
         var engine = EngineFile.Parse(
