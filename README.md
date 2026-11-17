@@ -24,6 +24,24 @@ Public-repo standard GitHub-hosted runners are free and do not consume
 your monthly minutes. "Unlimited tokens" is not a GitHub Actions concept —
 Actions is billed in **minutes**, and it has a 6-hour per-job cap.
 
+## If the app crashes
+
+The debug build now logs every startup step and shows failures on screen.
+
+- On-device log: `/sdcard/Android/data/org.openrails.android/files/startup.log`
+- If startup throws, the exception and that log are displayed in a scrollable,
+  selectable text view instead of a blank crash.
+- `adb logcat` (from Termux: `pkg install android-tools`, then Developer
+  options → Wireless debugging → `adb pair` / `adb connect`):
+
+```bash
+adb logcat -d AndroidRuntime:E OpenRailsAndroid:V mono-rt:E DEBUG:E *:S
+```
+
+Recent yes/no checks already done: APK is a valid zip, both ABIs present
+(`arm64-v8a`, `x86_64`), all packaged `.so` files are 16 KB-page aligned,
+launcher activity resolves, target SDK 36.
+
 ## Build locally
 
 Requires .NET 10 SDK, JDK 17, and Android SDK (API 34):
