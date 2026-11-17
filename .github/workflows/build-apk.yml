@@ -87,10 +87,10 @@ jobs:
           import sys, zipfile
           apk = sys.argv[1]
           names = zipfile.ZipFile(apk).namelist()
-          for n in sorted(names):
-              if n.startswith("lib/") or n.startswith("assemblies") or n.endswith((".dll", ".blob", ".so")):
-                  print(n)
-          print("TOTAL ENTRIES", len(names))
+          app = [n for n in names if n.endswith("/lib_OpenRailsAndroid.dll.so")]
+          print("embedded app assemblies:", len(app))
+          if not app:
+              sys.exit("APK has no embedded assemblies; it would abort on sideload (fast deployment).")
           PY
 
       - name: Upload APK artifact
