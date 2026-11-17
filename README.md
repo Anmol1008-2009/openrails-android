@@ -9,7 +9,7 @@ Android baseline plus CI that produces an installable debug APK.
 
 | Piece | State |
 | --- | --- |
-| MonoGame + .NET 10 Android app | working (rotating cube) |
+| MonoGame + .NET 10 Android app | **verified on device**: launches, renders at ~60 fps (Motorola Edge 50 Neo, Mali-G615, API 36) |
 | GitHub Actions debug APK build | working |
 | Content parsers: `.trk`, `.eng`, `.wag`, `.con` | implemented, 11 unit tests |
 | `.s` shape / `.ace` texture parsing | not started |
@@ -35,6 +35,37 @@ The APK is uploaded as the `openrails-android-debug-apk` artifact.
 Public-repo standard GitHub-hosted runners are free and do not consume
 your monthly minutes. "Unlimited tokens" is not a GitHub Actions concept —
 Actions is billed in **minutes**, and it has a 6-hour per-job cap.
+
+## Device verification
+
+![Running on a Motorola Edge 50 Neo](docs/device-running.png)
+
+Verified over `adb` on Android 16 (API 36, `arm64-v8a`): installs, launches,
+renders, and holds ~60 fps.
+
+Two packaging traps worth knowing:
+
+1. Debug builds default to **Fast Deployment**: assemblies are *not* packed
+   into the APK, and a sideloaded APK aborts with
+   `No assemblies found in .../.__override__/arm64-v8a`.
+   Fixed via `EmbedAssembliesIntoApk=True` (must be capital `T` — the targets
+   compare case-sensitively) plus `AndroidEnableFastDeployment=false`.
+   CI now fails if the app assembly is not embedded.
+2. Each CI run generates a fresh debug keystore, so installing over an older
+   build fails with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`. Uninstall first:
+
+```bash
+adb uninstall org.openrails.android
+adb install openrails-latest.apk
+```
+
+Quick device check:
+
+```bash
+adb install -r openrails-latest.apk
+adb shell am start -n org.openrails.android/crc64c40e553b9fef0da3.MainActivity
+adb exec-out screencap -p > screen.png
+```
 
 ## If the app crashes
 
