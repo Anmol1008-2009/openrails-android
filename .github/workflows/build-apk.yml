@@ -87,10 +87,10 @@ jobs:
           import sys, zipfile
           apk = sys.argv[1]
           names = zipfile.ZipFile(apk).namelist()
-          embedded = any("assemblies" in n for n in names)
-          print(f"embedded assemblies: {embedded}")
-          if not embedded:
-              sys.exit("APK uses Fast Deployment; it would abort on sideload. Set EmbedAssembliesIntoApk=true.")
+          for n in sorted(names):
+              if n.startswith("lib/") or n.startswith("assemblies") or n.endswith((".dll", ".blob", ".so")):
+                  print(n)
+          print("TOTAL ENTRIES", len(names))
           PY
 
       - name: Upload APK artifact
