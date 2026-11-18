@@ -45,15 +45,34 @@ public class MainActivity : AndroidGameActivity
             var game = new Game1();
             Trace("Game1 created");
 
-            if (game.Services.GetService(typeof(View)) is not View view)
+            if (game.Services.GetService(typeof(View)) is not View gameView)
             {
                 Trace("ERROR: MonoGame returned no View");
                 ShowError("MonoGame returned no View");
                 return;
             }
 
-            SetContentView(view);
-            Trace("SetContentView done");
+            var host = new FrameLayout(this);
+            host.AddView(gameView, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
+
+            var sample = SampleContent.Load(Assets);
+            Trace("Sample content parsed: route='" + sample.Route.Name + "' tdbNodes=" +
+                  sample.TrackDatabase.TrackNodes.Count + " trackSections=" +
+                  sample.TrackDatabase.TrackSectionPositions.Count + " consistVehicles=" +
+                  sample.Consist.Vehicles.Count);
+
+            View overlay = null!;
+            overlay = ContentScreen.Build(this, sample, () =>
+            {
+                host.RemoveView(overlay);
+                Trace("Content screen dismissed; showing 3D demo");
+            });
+            host.AddView(overlay, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
+
+            SetContentView(host);
+            Trace("SetContentView done (content screen)");
 
             game.Run();
             Trace("game.Run() returned");

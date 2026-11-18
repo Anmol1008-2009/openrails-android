@@ -91,6 +91,16 @@ jobs:
           print("embedded app assemblies:", len(app))
           if not app:
               sys.exit("APK has no embedded assemblies; it would abort on sideload (fast deployment).")
+
+          required = [
+              "samples/SampleRoute/SampleRoute.trk",
+              "samples/SampleRoute/SampleRoute.tdb",
+              "samples/SampleConsist.con",
+          ]
+          missing = [r for r in required if not any(n.lower().endswith(r.lower()) for n in names)]
+          print("packaged sample assets:", [n for n in names if "/samples/" in n.lower()])
+          if missing:
+              sys.exit("APK is missing sample content assets: " + ", ".join(missing))
           PY
 
       - name: Upload APK artifact

@@ -18,4 +18,8 @@
     <ProjectReference Include="../../core/OpenRails.Core/OpenRails.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="../../samples/**/*" Link="samples/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

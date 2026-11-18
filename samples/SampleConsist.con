@@ -1,0 +1,21 @@
+SIMISA@@@@@@@@@@JINX0D1t______
+Train (
+	TrainCfg (
+		Name ( "Sample Consist" )
+		Serial ( 1 )
+		MaxVelocity ( 40 )
+		NextWagonUID ( 3 )
+		Engine (
+			UiD ( 0 )
+			EngineData ( GP38 "GP38-2" )
+		)
+		Wagon (
+			UiD ( 1 )
+			WagonData ( US2Freight1 "US2 Freight 1" )
+		)
+		Wagon (
+			UiD ( 2 )
+			WagonData ( US2Freight1 "US2 Freight 1" )
+		)
+	)
+)

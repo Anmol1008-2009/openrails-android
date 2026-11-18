@@ -13,49 +13,30 @@ public class FormatTests
             """
             SIMISA@@@@@@@@@@JINX0T1t______
             Tr_RouteFile (
-            	RouteID ( USA1 )
-            	Name ( "North American Route" )
-            	Description ( "A test route" )
+                RouteID ( USA1 )
+                Name ( "North American Route" )
+                FileName ( USA1 )
+                Description ( "A test route" )
+                LoadingScreen ( Load.ace )
+                SpeedLimit ( 22.352 )
+                RouteStart ( -5306 14961 240 120 )
             )
             """);
 
         Assert.Equal("USA1", route.RouteId);
         Assert.Equal("North American Route", route.Name);
+        Assert.Equal("USA1", route.FileName);
         Assert.Equal("A test route", route.Description);
+        Assert.Equal("Load.ace", route.LoadingScreen);
+        Assert.Equal(22.352f, route.SpeedLimit!.Value, 3);
+        Assert.Equal(new RouteStart(-5306f, 14961f, 240f, 120f), route.RouteStart);
     }
 
     [Fact]
-    public void Reads_route_track_nodes()
-    {
-        var route = RouteFile.Parse(
-            """
-            SIMISA@@@@@@@@@@JINX0T1t______
-            Tr_RouteFile (
-                RouteID ( USA1 )
-                TrackNode (
-                    Position ( 100.5 -20.25 300 )
-                )
-                TrackNode (
-                    Position ( 200 0 400 )
-                )
-                TrackNode (
-                    Position ( abc 5 6 )
-                )
-            )
-            """);
-
-        var nodes = route.TrackNodePositions;
-        Assert.Equal(3, nodes.Count);
-        Assert.Equal((100.5f, -20.25f, 300f), nodes[0]);
-        Assert.Equal((200f, 0f, 400f), nodes[1]);
-        Assert.Equal((0f, 5f, 6f), nodes[2]);
-    }
-
-    [Fact]
-    public void Route_without_nodes_has_empty_positions()
+    public void Route_without_route_start_has_null_start()
     {
         var route = RouteFile.Parse("Tr_RouteFile ( Name ( X ) )");
-        Assert.Empty(route.TrackNodePositions);
+        Assert.Null(route.RouteStart);
     }
 
     [Fact]

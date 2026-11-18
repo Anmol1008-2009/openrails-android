@@ -16,7 +16,8 @@ device/adb details, packaging gotchas, and the next steps.
 | --- | --- |
 | MonoGame + .NET 10 Android app | **verified on device**: launches, renders at ~60 fps (Motorola Edge 50 Neo, Mali-G615, API 36) |
 | GitHub Actions debug APK build | working |
-| Content parsers: `.trk`, `.eng`, `.wag`, `.con` | implemented, 11 unit tests |
+| Content parsers: `.trk`, `.tdb`, `.eng`, `.wag`, `.con` | implemented, 17 unit tests |
+| On-device sample-content screen | parses bundled route/TDB/consist from assets |
 | `.s` shape / `.ace` texture parsing | not started |
 | 3D route/rolling-stock rendering | not started |
 | Touch/cab controls | not started |
@@ -31,6 +32,8 @@ dotnet run --project tests/OpenRails.Core.Tests/OpenRails.Core.Tests.csproj -c R
 ```
 
 CI runs this in the `test` job on every push, independently of the APK job.
+The same tests parse `samples/` — a synthetic route (`.trk` + `.tdb`) and
+consist — so the data that ships in the APK is validated too.
 
 ## Build in CI
 
@@ -46,7 +49,9 @@ Actions is billed in **minutes**, and it has a 6-hour per-job cap.
 ![Running on a Motorola Edge 50 Neo](docs/device-running.png)
 
 Verified over `adb` on Android 16 (API 36, `arm64-v8a`): installs, launches,
-renders, and holds ~60 fps.
+renders, and holds ~60 fps (screenshot predates the content screen). Startup now
+opens the sample-content screen first; tap **Start 3D demo** to reveal the
+MonoGame cube.
 
 Two packaging traps worth knowing:
 
@@ -94,18 +99,19 @@ launcher activity resolves, target SDK 36.
 
 ## Build locally
 
-Requires .NET 10 SDK, JDK 17, and Android SDK (API 34):
+Requires .NET 10 SDK, JDK 17, and Android SDK (API 36):
 
 ```bash
 dotnet workload install android
 dotnet build -c Debug -p:AndroidPackageFormat=apk
-# -> bin/Debug/net8.0-android/org.openrails.android-Signed.apk
+# -> bin/Debug/net10.0-android36.0/org.openrails.android-Signed.apk
 ```
 
 ## Roadmap to a real port
 
-1. **Content layer** — parse Open Rails route (`*.trk`), consist, `.eng` /
-   `.wag`, shape (`.s`) and texture (`.ace`) formats into engine-neutral models.
+1. **Content layer** — parse Open Rails route (`*.trk`, track database `*.tdb`),
+   consist, `.eng` / `.wag`, shape (`.s`) and texture (`.ace`) formats into
+   engine-neutral models.
 2. **Renderer** — replace `BasicEffect` with a real 3D pipeline (instanced
    terrain, track, rolling stock). DirectX 9 code does not port; rewrite
    against OpenGL ES 3 / Vulkan.

@@ -1,6 +1,6 @@
 # Session state — resume here
 
-Last updated: 2026-11-17 (UTC)
+Last updated: 2026-11-18 (UTC)
 
 ## What this is
 
@@ -9,10 +9,18 @@ Android port seed for Open Rails. Repo: https://github.com/Anmol1008-2009/openra
 
 ## Verified working
 
-- `test` job: 11 xunit v3 tests pass (MSTS tokenizer/parser + `.trk`/`.eng`/`.wag`/`.con` readers).
-- `apk` job: builds a self-contained debug APK and verifies manifest + embedded assemblies.
-- On device: installed and launched on Motorola Edge 50 Neo (Android 16 / API 36,
-  arm64-v8a, Mali-G615). Renders at ~60 fps. Screenshot: `docs/device-running.png`.
+- `test` job: 17 xunit v3 tests pass (MSTS tokenizer/parser, `.trk`/`.tdb`/`.eng`/
+  `.wag`/`.con` readers, plus the bundled sample route/consist).
+- `apk` job: builds a self-contained debug APK, verifies manifest, embedded
+  assemblies, and that the sample content assets are packaged.
+- On device (before this change): installed and launched on Motorola Edge 50 Neo
+  (Android 16 / API 36, arm64-v8a, Mali-G615). Renders at ~60 fps.
+  Screenshot: `docs/device-running.png`.
+- Startup now opens a **sample-content screen** (no 3D): it parses the bundled
+  `.trk`, `.tdb`, and `.con` from assets and shows route metadata, track-node
+  counts/positions, and the consist. "Start 3D demo" reveals the MonoGame cube.
+  Implemented and covered by tests; **not yet device-verified** (no adb device
+  was reachable on 2026-11-18).
 
 ## Non-obvious gotchas (do not regress these)
 
@@ -29,6 +37,9 @@ Android port seed for Open Rails. Repo: https://github.com/Anmol1008-2009/openra
 5. `.NET 8` is EOL and SDK 11 turns it into error NETSDK1202. Target
    `net10.0-android36.0`; `global.json` pins SDK 10.
 6. MonoGame `3.8.6.1` ships only `net8.0-android34.0`; it is consumed fine from net10.
+7. MSTS track geometry is **not** in `.trk`. `.trk` holds `RouteID`, `Name`,
+   `FileName`, `RouteStart`, etc.; `TrackNode`/`TrVectorSection` data is in the
+   route's `.tdb` (same base name as `.trk`). Do not look for TrackNode in `.trk`.
 
 ## Device / adb
 
@@ -64,17 +75,21 @@ adb exec-out screencap -p > screen.png
 
 - `src/MainActivity.cs` — activity, startup tracing, clipboard/Downloads log export.
 - `src/Game1.cs` — MonoGame rotating cube (placeholder renderer).
+- `src/SampleContent.cs` — loads bundled `.trk`/`.tdb`/`.con` and builds the summary.
+- `src/ContentScreen.cs` — on-device sample-content screen (Android views, no 3D).
 - `core/OpenRails.Core/` — portable MSTS parsing: `Msts/MstsTokenizer.cs`,
-  `Msts/MstsParser.cs`, `Msts/MstsBlock.cs`, `Formats/{Route,Engine,Wagon,Consist}File.cs`.
+  `Msts/MstsParser.cs`, `Msts/MstsBlock.cs`, `Formats/{Route,TrackDatabase,Engine,Wagon,Consist}File.cs`.
+- `samples/` — synthetic, GPL-safe content: `SampleRoute/SampleRoute.trk`,
+  `SampleRoute/SampleRoute.tdb`, `SampleConsist.con`. Packaged as Android assets.
 - `tests/OpenRails.Core.Tests/` — xunit v3 (auto entry point, MTP).
 - `.github/workflows/build-apk.yml` — `test` and `apk` jobs.
 
 ## Next steps (in order)
 
-1. Load an actual route: wire `RouteFile`/`ConsistFile` into a sample-data screen
-   (no 3D yet) to prove the parsers against real MSTS content.
-2. Replace the cube with a minimal 3D scene: track from `.trk` nodes / a generated
-   test route; keep it data-driven.
+1. ~~Load an actual route: wire `RouteFile`/`ConsistFile` into a sample-data
+   screen~~ — done; now includes `.tdb` track nodes/sections.
+2. Replace the cube with a minimal 3D scene driven by the `.tdb` vector-section
+   positions (or a generated test route); keep it data-driven.
 3. Touch input: multi-touch slider/button overlay writing into an
    `ExternalDeviceState`-style adapter (see handoff doc for Open Rails'
    `WebDeviceState` path).

@@ -1,0 +1,41 @@
+SIMISA@@@@@@@@@@JINX0T1t______
+TrackDB (
+	Serial ( 1 )
+	TrackNodes ( 5
+		TrackNode ( 1
+			TrEndNode ( )
+			UiD ( 0 0 1 0 0 0 0 0 0 0 0 0 )
+			TrPins ( 0 1 TrPin ( 2 0 ) )
+		)
+		TrackNode ( 2
+			TrJunctionNode ( 0 1 0 )
+			UiD ( 0 0 2 0 0 0 100 0 0 1.5708 0 0 )
+			TrPins ( 1 2 TrPin ( 1 0 ) TrPin ( 3 0 ) TrPin ( 4 0 ) )
+		)
+		TrackNode ( 3
+			TrVectorNode (
+				TrVectorSections ( 3
+					1 1 0 0 0 0 1 00 0 0 0 0 0 1.5708 0 0
+					1 1 0 0 0 0 1 00 0 0 100 0 0 1.5708 0 0
+					1 1 0 0 0 0 1 00 0 0 200 0 0 1.5708 0 0
+				)
+			)
+			TrPins ( 1 1 TrPin ( 2 0 ) TrPin ( 5 1 ) )
+		)
+		TrackNode ( 4
+			TrVectorNode (
+				TrVectorSections ( 2
+					1 1 0 0 0 0 1 00 0 0 0 0 0 0 0 0
+					1 1 0 0 0 0 1 00 0 0 150 0 0 0 0 0
+				)
+			)
+			TrPins ( 1 1 TrPin ( 2 0 ) TrPin ( 5 1 ) )
+		)
+		TrackNode ( 5
+			TrEndNode ( )
+			UiD ( 0 0 5 0 0 0 300 0 150 0 0 0 )
+			TrPins ( 1 0 TrPin ( 3 0 ) )
+		)
+	)
+	TrItemTable ( 0 )
+)

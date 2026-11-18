@@ -1,22 +1,26 @@
-using System.Globalization;
-using System.Linq;
 using OpenRails.Core.Msts;
 
 namespace OpenRails.Core.Formats;
 
 /// <summary>
 /// Reader for the MSTS/Open Rails route header file (<c>*.trk</c>).
+/// Track geometry is not stored here; it lives in the route's <c>*.tdb</c>
+/// file (see <see cref="TrackDatabaseFile"/>).
 /// </summary>
 public sealed class RouteFile
 {
     public RouteFile(MstsBlock root)
     {
         Root = root ?? throw new ArgumentNullException(nameof(root));
-        TrackNodePositions = root.ChildrenNamed("TrackNode")
-            .SelectMany(n => n.ChildrenNamed("Position"))
-            .Where(p => p.Values.Count >= 3)
-            .Select(p => ParseVec3(p.Values))
-            .ToList();
+
+        if (root.Child("RouteStart") is { } start && start.Values.Count >= 4)
+        {
+            RouteStart = new RouteStart(
+                start.GetFloatAt(0),
+                start.GetFloatAt(1),
+                start.GetFloatAt(2),
+                start.GetFloatAt(3));
+        }
     }
 
     public MstsBlock Root { get; }
@@ -27,15 +31,24 @@ public sealed class RouteFile
 
     public string? Description => Root.GetString("Description");
 
-    public IReadOnlyList<(float X, float Y, float Z)> TrackNodePositions { get; }
+    /// <summary>Base name shared by the route's <c>.tdb</c>, <c>.rdb</c>, <c>.ref</c>, etc.</summary>
+    public string? FileName => Root.GetString("FileName");
+
+    public string? LoadingScreen => Root.GetString("LoadingScreen");
+
+    public string? Graphic => Root.GetString("Graphic");
+
+    /// <summary>Global route speed limit as stored by MSTS, in metres per second.</summary>
+    public float? SpeedLimit => Root.GetFloat("SpeedLimit");
+
+    public RouteStart? RouteStart { get; }
 
     public static RouteFile Parse(string text) => new(MstsParser.ParseSingle(text, "Tr_RouteFile"));
 
     public static RouteFile Load(string path) => Parse(File.ReadAllText(path));
-
-    private static (float X, float Y, float Z) ParseVec3(List<string> v)
-    {
-        float X(string s) => float.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var x) ? x : 0f;
-        return (X(v[0]), X(v[1]), X(v[2]));
-    }
 }
+
+/// <summary>
+/// Starting tile and offset of a route, from <c>Tr_RouteFile/RouteStart</c>.
+/// </summary>
+public sealed record RouteStart(float TileX, float TileZ, float X, float Z);

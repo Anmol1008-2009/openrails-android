@@ -26,6 +26,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <AndroidAsset Include="samples/**/*" Link="Assets/samples/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="MonoGame.Framework.Android" Version="3.8.6.1" />
   </ItemGroup>
 

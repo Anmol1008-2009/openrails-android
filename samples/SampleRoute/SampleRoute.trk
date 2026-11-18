@@ -1,0 +1,11 @@
+SIMISA@@@@@@@@@@JINX0T1t______
+Tr_RouteFile (
+	RouteID ( SampleRoute )
+	Name ( "Open Rails Android Sample Route" )
+	FileName ( SampleRoute )
+	Description ( "Synthetic route header used to exercise the Open Rails Android parsers." )
+	Graphic ( SampleRoute.ace )
+	LoadingScreen ( Load.ace )
+	SpeedLimit ( 22.352 )
+	RouteStart ( 0 0 240 120 )
+)

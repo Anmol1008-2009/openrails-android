@@ -26,6 +26,16 @@ public static class MstsBlockExtensions
     public static float? GetFloat(this MstsBlock block, string childName) =>
         block.GetDouble(childName) is { } value ? (float)value : null;
 
+    public static int GetIntAt(this MstsBlock block, int index, int fallback = 0) =>
+        int.TryParse(block.GetValue(index), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
+            ? value
+            : fallback;
+
+    public static float GetFloatAt(this MstsBlock block, int index, float fallback = 0f) =>
+        float.TryParse(block.GetValue(index), NumberStyles.Float, CultureInfo.InvariantCulture, out var value)
+            ? value
+            : fallback;
+
     public static bool GetFlag(this MstsBlock block, string childName)
     {
         var raw = block.GetString(childName);
