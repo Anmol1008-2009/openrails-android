@@ -1,18 +1,38 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using OpenRails.Core.Formats;
 
 namespace OpenRails.Android;
 
+/// <summary>
+/// Minimal data-driven track viewer: geometry comes from the route's
+/// <c>.tdb</c> vector sections, not from hard-coded shapes.
+/// </summary>
 public sealed class Game1 : Game
 {
+    private static readonly Color ClearColor = new(14, 20, 26);
+    private static readonly Color GroundColor = new(20, 30, 32);
+    private static readonly Color GridMinor = new(27, 41, 49);
+    private static readonly Color GridMajor = new(40, 62, 74);
+    private static readonly Color BallastColor = new(72, 68, 60);
+    private static readonly Color RailColor = new(205, 205, 195);
+    private static readonly Color CenterLineColor = new(180, 145, 60);
+    private static readonly Color EndColor = new(255, 130, 70);
+    private static readonly Color JunctionColor = new(90, 215, 255);
+
     private readonly GraphicsDeviceManager _graphics;
+    private readonly TrackDatabaseFile _trackDatabase;
+
     private BasicEffect _effect = null!;
-    private VertexBuffer _cube = null!;
+    private VertexBuffer _surfaceBuffer = null!;
+    private VertexBuffer _lineBuffer = null!;
+    private int _surfacePrimitiveCount;
+    private int _linePrimitiveCount;
 
-    private float _angle;
-
-    public Game1()
+    public Game1(TrackDatabaseFile trackDatabase)
     {
+        _trackDatabase = trackDatabase ?? throw new ArgumentNullException(nameof(trackDatabase));
+
         _graphics = new GraphicsDeviceManager(this)
         {
             PreferredBackBufferWidth = 1280,
@@ -30,84 +50,266 @@ public sealed class Game1 : Game
             LightingEnabled = false,
         };
 
-        _cube = new VertexBuffer(GraphicsDevice, typeof(VertexPositionColor), 36, BufferUsage.WriteOnly);
-        _cube.SetData(BuildCube());
+        BuildScene();
     }
 
     protected override void UnloadContent()
     {
-        _cube?.Dispose();
+        _surfaceBuffer?.Dispose();
+        _lineBuffer?.Dispose();
         _effect?.Dispose();
         base.UnloadContent();
     }
 
-    protected override void Update(GameTime gameTime)
-    {
-        _angle += (float)gameTime.ElapsedGameTime.TotalSeconds * 0.8f;
-        base.Update(gameTime);
-    }
-
     protected override void Draw(GameTime gameTime)
     {
-        GraphicsDevice.Clear(new Color(24, 30, 40));
+        GraphicsDevice.Clear(ClearColor);
+        GraphicsDevice.RasterizerState = RasterizerState.CullNone;
 
         var aspect = GraphicsDevice.Viewport.AspectRatio;
-        _effect.World = Matrix.CreateRotationY(_angle) * Matrix.CreateRotationX(_angle * 0.5f);
-        _effect.View = Matrix.CreateLookAt(new Vector3(0f, 1.5f, 4f), Vector3.Zero, Vector3.Up);
-        _effect.Projection = Matrix.CreatePerspectiveFieldOfView(MathHelper.PiOver4, aspect, 0.1f, 100f);
+        _effect.World = Matrix.Identity;
+        _effect.View = Matrix.CreateLookAt(new Vector3(105f, 95f, 130f), Vector3.Zero, Vector3.Up);
+        _effect.Projection = Matrix.CreatePerspectiveFieldOfView(MathHelper.PiOver4, aspect, 0.1f, 2000f);
 
-        GraphicsDevice.SetVertexBuffer(_cube);
-        foreach (var pass in _effect.CurrentTechnique.Passes)
+        GraphicsDevice.SetVertexBuffer(_surfaceBuffer);
+        if (_surfacePrimitiveCount > 0)
         {
-            pass.Apply();
-            GraphicsDevice.DrawPrimitives(PrimitiveType.TriangleList, 0, 12);
+            foreach (var pass in _effect.CurrentTechnique.Passes)
+            {
+                pass.Apply();
+                GraphicsDevice.DrawPrimitives(PrimitiveType.TriangleList, 0, _surfacePrimitiveCount);
+            }
+        }
+
+        GraphicsDevice.SetVertexBuffer(_lineBuffer);
+        if (_linePrimitiveCount > 0)
+        {
+            foreach (var pass in _effect.CurrentTechnique.Passes)
+            {
+                pass.Apply();
+                GraphicsDevice.DrawPrimitives(PrimitiveType.LineList, 0, _linePrimitiveCount);
+            }
         }
 
         base.Draw(gameTime);
     }
 
-    private static VertexPositionColor[] BuildCube()
+    private void BuildScene()
     {
-        var corners = new[]
+        var worldPoints = new List<(float X, float Y, float Z)>();
+        foreach (var node in _trackDatabase.TrackNodes)
         {
-            new Vector3(-1, -1, -1), new Vector3(1, -1, -1),
-            new Vector3(1, 1, -1), new Vector3(-1, 1, -1),
-            new Vector3(-1, -1, 1), new Vector3(1, -1, 1),
-            new Vector3(1, 1, 1), new Vector3(-1, 1, 1),
-        };
+            if (node.Position is { } position)
+            {
+                worldPoints.Add((position.WorldX, position.Y, position.WorldZ));
+            }
 
-        int[][] faces =
-        {
-            new[] { 0, 1, 2, 3 },
-            new[] { 5, 4, 7, 6 },
-            new[] { 4, 0, 3, 7 },
-            new[] { 1, 5, 6, 2 },
-            new[] { 3, 2, 6, 7 },
-            new[] { 4, 5, 1, 0 },
-        };
-
-        var colors = new[]
-        {
-            new Color(70, 130, 180), new Color(60, 179, 113), new Color(218, 165, 32),
-            new Color(205, 92, 92), new Color(147, 112, 219), new Color(255, 140, 0),
-        };
-
-        var verts = new VertexPositionColor[36];
-        var i = 0;
-        for (var f = 0; f < faces.Length; f++)
-        {
-            var q = faces[f];
-            AddTriangle(verts, ref i, corners[q[0]], corners[q[1]], corners[q[2]], colors[f]);
-            AddTriangle(verts, ref i, corners[q[0]], corners[q[2]], corners[q[3]], colors[f]);
+            foreach (var section in node.VectorSections)
+            {
+                worldPoints.Add((section.WorldX, section.Y, section.WorldZ));
+            }
         }
 
-        return verts;
+        var centerX = 0f;
+        var centerY = 0f;
+        var centerZ = 0f;
+        var scale = 1f;
+        var groundY = -2f;
+
+        if (worldPoints.Count > 0)
+        {
+            var minX = worldPoints.Min(p => p.X);
+            var maxX = worldPoints.Max(p => p.X);
+            var minY = worldPoints.Min(p => p.Y);
+            var maxY = worldPoints.Max(p => p.Y);
+            var minZ = worldPoints.Min(p => p.Z);
+            var maxZ = worldPoints.Max(p => p.Z);
+
+            centerX = (minX + maxX) * 0.5f;
+            centerY = (minY + maxY) * 0.5f;
+            centerZ = (minZ + maxZ) * 0.5f;
+
+            var extent = MathF.Max(maxX - minX, MathF.Max(maxZ - minZ, maxY - minY));
+            scale = extent > 0.5f ? 120f / extent : 1f;
+            groundY = ((minY - centerY) * scale) - 2f;
+        }
+
+        var surfaces = new List<VertexPositionColor>();
+        var lines = new List<VertexPositionColor>();
+
+        AddGround(surfaces, lines, groundY);
+        AddTrack(surfaces, lines, centerX, centerY, centerZ, scale);
+        AddNodeMarkers(lines, centerX, centerY, centerZ, scale);
+
+        _surfaceBuffer = new VertexBuffer(
+            GraphicsDevice,
+            typeof(VertexPositionColor),
+            Math.Max(surfaces.Count, 1),
+            BufferUsage.WriteOnly);
+        _surfaceBuffer.SetData(surfaces.Count > 0
+            ? surfaces.ToArray()
+            : new[] { default(VertexPositionColor) });
+        _surfacePrimitiveCount = surfaces.Count / 3;
+
+        _lineBuffer = new VertexBuffer(
+            GraphicsDevice,
+            typeof(VertexPositionColor),
+            Math.Max(lines.Count, 2),
+            BufferUsage.WriteOnly);
+        _lineBuffer.SetData(lines.Count > 0
+            ? lines.ToArray()
+            : new[] { default(VertexPositionColor), default(VertexPositionColor) });
+        _linePrimitiveCount = lines.Count / 2;
     }
 
-    private static void AddTriangle(VertexPositionColor[] verts, ref int i, Vector3 a, Vector3 b, Vector3 c, Color color)
+    private static void AddGround(
+        List<VertexPositionColor> surfaces,
+        List<VertexPositionColor> lines,
+        float y)
     {
-        verts[i++] = new VertexPositionColor(a, color);
-        verts[i++] = new VertexPositionColor(b, color);
-        verts[i++] = new VertexPositionColor(c, color);
+        const float half = 170f;
+
+        AddQuad(
+            surfaces,
+            new Vector3(-half, y, -half),
+            new Vector3(-half, y, half),
+            new Vector3(half, y, half),
+            new Vector3(half, y, -half),
+            GroundColor);
+
+        for (var i = -160; i <= 160; i += 10)
+        {
+            var color = i % 50 == 0 ? GridMajor : GridMinor;
+            AddLine(lines, new Vector3(i, y, -half), new Vector3(i, y, half), color);
+            AddLine(lines, new Vector3(-half, y, i), new Vector3(half, y, i), color);
+        }
+    }
+
+    private void AddTrack(
+        List<VertexPositionColor> surfaces,
+        List<VertexPositionColor> lines,
+        float centerX,
+        float centerY,
+        float centerZ,
+        float scale)
+    {
+        var bedHalf = MathF.Max(0.8f, 2.5f * scale);
+        var railOffset = MathF.Max(0.25f, 0.75f * scale);
+
+        foreach (var node in _trackDatabase.TrackNodes)
+        {
+            var points = node.VectorSections
+                .Select(section => ToLocal(section.WorldX, section.Y, section.WorldZ,
+                    centerX, centerY, centerZ, scale))
+                .ToList();
+
+            for (var i = 0; i < points.Count - 1; i++)
+            {
+                var a = points[i];
+                var b = points[i + 1];
+                var dx = b.X - a.X;
+                var dz = b.Z - a.Z;
+                var length = MathF.Sqrt((dx * dx) + (dz * dz));
+                if (length < 0.0001f)
+                {
+                    continue;
+                }
+
+                var px = -dz / length;
+                var pz = dx / length;
+
+                AddQuad(
+                    surfaces,
+                    new Vector3(a.X + (px * bedHalf), a.Y + 0.05f, a.Z + (pz * bedHalf)),
+                    new Vector3(a.X - (px * bedHalf), a.Y + 0.05f, a.Z - (pz * bedHalf)),
+                    new Vector3(b.X - (px * bedHalf), b.Y + 0.05f, b.Z - (pz * bedHalf)),
+                    new Vector3(b.X + (px * bedHalf), b.Y + 0.05f, b.Z + (pz * bedHalf)),
+                    BallastColor);
+
+                AddLine(
+                    lines,
+                    new Vector3(a.X + (px * railOffset), a.Y + 0.15f, a.Z + (pz * railOffset)),
+                    new Vector3(b.X + (px * railOffset), b.Y + 0.15f, b.Z + (pz * railOffset)),
+                    RailColor);
+                AddLine(
+                    lines,
+                    new Vector3(a.X - (px * railOffset), a.Y + 0.15f, a.Z - (pz * railOffset)),
+                    new Vector3(b.X - (px * railOffset), b.Y + 0.15f, b.Z - (pz * railOffset)),
+                    RailColor);
+                AddLine(
+                    lines,
+                    new Vector3(a.X, a.Y + 0.12f, a.Z),
+                    new Vector3(b.X, b.Y + 0.12f, b.Z),
+                    CenterLineColor);
+            }
+        }
+    }
+
+    private void AddNodeMarkers(
+        List<VertexPositionColor> lines,
+        float centerX,
+        float centerY,
+        float centerZ,
+        float scale)
+    {
+        foreach (var node in _trackDatabase.TrackNodes)
+        {
+            if (node.Kind is not (TrackNodeKind.End or TrackNodeKind.Junction) ||
+                node.Position is null)
+            {
+                continue;
+            }
+
+            var position = node.Position.Value;
+
+            var point = ToLocal(position.WorldX, position.Y, position.WorldZ,
+                centerX, centerY, centerZ, scale);
+            var color = node.Kind == TrackNodeKind.Junction ? JunctionColor : EndColor;
+            var size = node.Kind == TrackNodeKind.Junction ? 2.5f : 1.5f;
+            var y = point.Y + 0.4f;
+
+            AddLine(lines,
+                new Vector3(point.X - size, y, point.Z),
+                new Vector3(point.X + size, y, point.Z), color);
+            AddLine(lines,
+                new Vector3(point.X, y, point.Z - size),
+                new Vector3(point.X, y, point.Z + size), color);
+        }
+    }
+
+    private static Vector3 ToLocal(
+        float x,
+        float y,
+        float z,
+        float centerX,
+        float centerY,
+        float centerZ,
+        float scale) =>
+        new((x - centerX) * scale, (y - centerY) * scale, (z - centerZ) * scale);
+
+    private static void AddQuad(
+        List<VertexPositionColor> vertices,
+        Vector3 a,
+        Vector3 b,
+        Vector3 c,
+        Vector3 d,
+        Color color)
+    {
+        vertices.Add(new VertexPositionColor(a, color));
+        vertices.Add(new VertexPositionColor(b, color));
+        vertices.Add(new VertexPositionColor(c, color));
+        vertices.Add(new VertexPositionColor(a, color));
+        vertices.Add(new VertexPositionColor(c, color));
+        vertices.Add(new VertexPositionColor(d, color));
+    }
+
+    private static void AddLine(
+        List<VertexPositionColor> vertices,
+        Vector3 a,
+        Vector3 b,
+        Color color)
+    {
+        vertices.Add(new VertexPositionColor(a, color));
+        vertices.Add(new VertexPositionColor(b, color));
     }
 }

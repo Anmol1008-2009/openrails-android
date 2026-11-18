@@ -42,8 +42,14 @@ public class MainActivity : AndroidGameActivity
 
         try
         {
-            var game = new Game1();
-            Trace("Game1 created");
+            var sample = SampleContent.Load(Assets!);
+            Trace("Sample content parsed: route='" + sample.Route.Name + "' tdbNodes=" +
+                  sample.TrackDatabase.TrackNodes.Count + " trackSections=" +
+                  sample.TrackDatabase.TrackSectionPositions.Count + " consistVehicles=" +
+                  sample.Consist.Vehicles.Count);
+
+            var game = new Game1(sample.TrackDatabase);
+            Trace("Game1 created (track from .tdb)");
 
             if (game.Services.GetService(typeof(View)) is not View gameView)
             {
@@ -56,17 +62,11 @@ public class MainActivity : AndroidGameActivity
             host.AddView(gameView, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
 
-            var sample = SampleContent.Load(Assets!);
-            Trace("Sample content parsed: route='" + sample.Route.Name + "' tdbNodes=" +
-                  sample.TrackDatabase.TrackNodes.Count + " trackSections=" +
-                  sample.TrackDatabase.TrackSectionPositions.Count + " consistVehicles=" +
-                  sample.Consist.Vehicles.Count);
-
             View overlay = null!;
             overlay = ContentScreen.Build(this, sample, () =>
             {
                 host.RemoveView(overlay);
-                Trace("Content screen dismissed; showing 3D demo");
+                Trace("Content screen dismissed; showing 3D track demo");
             });
             host.AddView(overlay, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));

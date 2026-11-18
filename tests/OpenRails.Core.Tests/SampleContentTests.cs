@@ -27,13 +27,13 @@ public class SampleContentTests
     {
         var tdb = TrackDatabaseFile.Load(SamplePath("SampleRoute", "SampleRoute.tdb"));
 
-        Assert.Equal(5, tdb.DeclaredTrackNodeCount);
-        Assert.Equal(5, tdb.TrackNodes.Count);
+        Assert.Equal(6, tdb.DeclaredTrackNodeCount);
+        Assert.Equal(6, tdb.TrackNodes.Count);
         Assert.Equal(TrackNodeKind.End, tdb.TrackNodes[0].Kind);
         Assert.Equal(TrackNodeKind.Junction, tdb.TrackNodes[1].Kind);
         Assert.Equal(TrackNodeKind.Vector, tdb.TrackNodes[2].Kind);
-        Assert.Equal(3, tdb.TrackNodes[2].VectorSections.Count);
-        Assert.Equal(5, tdb.TrackSectionPositions.Count);
+        Assert.Equal(4, tdb.TrackNodes[2].VectorSections.Count);
+        Assert.Equal(7, tdb.TrackSectionPositions.Count);
         Assert.All(tdb.TrackNodes, node => Assert.NotNull(node.Position));
     }
 
