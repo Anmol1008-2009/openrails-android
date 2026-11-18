@@ -10,6 +10,7 @@ using Android.Util;
 using Android.Views;
 using Android.Widget;
 using Microsoft.Xna.Framework;
+using OpenRails.Core.Simulation;
 
 namespace OpenRails.Android;
 
@@ -48,7 +49,8 @@ public class MainActivity : AndroidGameActivity
                   sample.TrackDatabase.TrackSectionPositions.Count + " consistVehicles=" +
                   sample.Consist.Vehicles.Count);
 
-            var game = new Game1(sample.TrackDatabase);
+            var controls = new TrainControlState();
+            var game = new Game1(sample.TrackDatabase, controls);
             Trace("Game1 created (track from .tdb)");
 
             if (game.Services.GetService(typeof(View)) is not View gameView)
@@ -66,7 +68,13 @@ public class MainActivity : AndroidGameActivity
             overlay = ContentScreen.Build(this, sample, () =>
             {
                 host.RemoveView(overlay);
-                Trace("Content screen dismissed; showing 3D track demo");
+                var cabParams = new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent)
+                {
+                    Gravity = GravityFlags.Bottom,
+                };
+                host.AddView(new ControlOverlay(this, controls), cabParams);
+                Trace("Content screen dismissed; showing 3D track demo with cab controls");
             });
             host.AddView(overlay, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));

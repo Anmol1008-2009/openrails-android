@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using OpenRails.Core.Formats;
+using OpenRails.Core.Simulation;
 
 namespace OpenRails.Android;
 
@@ -22,6 +23,13 @@ public sealed class Game1 : Game
 
     private readonly GraphicsDeviceManager _graphics;
     private readonly TrackDatabaseFile _trackDatabase;
+    private readonly TrainControlState _controls;
+    private readonly List<Vector3> _trainPath = new();
+    private readonly List<float> _trainPathLengths = new();
+    private readonly VertexPositionColor[] _trainVertices = new VertexPositionColor[36];
+    private float _trainDistance;
+    private float _trainSpeed;
+    private float _totalPathLength;
 
     private BasicEffect _effect = null!;
     private VertexBuffer _surfaceBuffer = null!;
@@ -29,9 +37,10 @@ public sealed class Game1 : Game
     private int _surfacePrimitiveCount;
     private int _linePrimitiveCount;
 
-    public Game1(TrackDatabaseFile trackDatabase)
+    public Game1(TrackDatabaseFile trackDatabase, TrainControlState controls)
     {
         _trackDatabase = trackDatabase ?? throw new ArgumentNullException(nameof(trackDatabase));
+        _controls = controls ?? throw new ArgumentNullException(nameof(controls));
 
         _graphics = new GraphicsDeviceManager(this)
         {
@@ -61,6 +70,42 @@ public sealed class Game1 : Game
         base.UnloadContent();
     }
 
+    protected override void Update(GameTime gameTime)
+    {
+        var dt = MathF.Min((float)gameTime.ElapsedGameTime.TotalSeconds, 0.1f);
+
+        if (_totalPathLength > 0f)
+        {
+            var target = _controls.Throttle * 45f * _controls.DirectionSign;
+            var rate = MathF.Max(30f * _controls.Throttle, 45f * _controls.Brake);
+            if (rate <= 0f)
+            {
+                rate = 4f;
+            }
+
+            _trainSpeed = MoveTowards(_trainSpeed, target, rate * dt);
+            _trainDistance += _trainSpeed * dt;
+
+            if (_trainDistance < 0f)
+            {
+                _trainDistance = 0f;
+                _trainSpeed = 0f;
+            }
+            else if (_trainDistance > _totalPathLength)
+            {
+                _trainDistance = _totalPathLength;
+                _trainSpeed = 0f;
+            }
+        }
+        else
+        {
+            _trainSpeed = 0f;
+        }
+
+        _controls.SpeedMetersPerSecond = _trainSpeed;
+        base.Update(gameTime);
+    }
+
     protected override void Draw(GameTime gameTime)
     {
         GraphicsDevice.Clear(ClearColor);
@@ -88,6 +133,17 @@ public sealed class Game1 : Game
             {
                 pass.Apply();
                 GraphicsDevice.DrawPrimitives(PrimitiveType.LineList, 0, _linePrimitiveCount);
+            }
+        }
+
+        if (_trainPath.Count >= 2)
+        {
+            BuildTrainBox();
+            foreach (var pass in _effect.CurrentTechnique.Passes)
+            {
+                pass.Apply();
+                GraphicsDevice.DrawUserPrimitives(
+                    PrimitiveType.TriangleList, _trainVertices, 0, 12);
             }
         }
 
@@ -140,6 +196,7 @@ public sealed class Game1 : Game
         AddGround(surfaces, lines, groundY);
         AddTrack(surfaces, lines, centerX, centerY, centerZ, scale);
         AddNodeMarkers(lines, centerX, centerY, centerZ, scale);
+        BuildTrainPath(centerX, centerY, centerZ, scale);
 
         _surfaceBuffer = new VertexBuffer(
             GraphicsDevice,
@@ -275,6 +332,126 @@ public sealed class Game1 : Game
                 new Vector3(point.X, y, point.Z - size),
                 new Vector3(point.X, y, point.Z + size), color);
         }
+    }
+
+    private void BuildTrainPath(
+        float centerX,
+        float centerY,
+        float centerZ,
+        float scale)
+    {
+        var node = _trackDatabase.TrackNodes
+            .OrderByDescending(n => n.VectorSections.Count)
+            .FirstOrDefault(n => n.VectorSections.Count >= 2);
+        if (node is null)
+        {
+            return;
+        }
+
+        _trainPath.Clear();
+        _trainPathLengths.Clear();
+        _trainPathLengths.Add(0f);
+
+        foreach (var section in node.VectorSections)
+        {
+            _trainPath.Add(ToLocal(
+                section.WorldX, section.Y, section.WorldZ,
+                centerX, centerY, centerZ, scale));
+        }
+
+        for (var i = 1; i < _trainPath.Count; i++)
+        {
+            var length = Vector3.Distance(_trainPath[i - 1], _trainPath[i]);
+            _trainPathLengths.Add(_trainPathLengths[i - 1] + length);
+        }
+
+        _totalPathLength = _trainPathLengths[^1];
+    }
+
+    private Vector3 SamplePath(float distance, out Vector3 tangent)
+    {
+        distance = Math.Clamp(distance, 0f, _totalPathLength);
+
+        var index = 0;
+        while (index < _trainPath.Count - 2 && _trainPathLengths[index + 1] < distance)
+        {
+            index++;
+        }
+
+        var a = _trainPath[index];
+        var b = _trainPath[index + 1];
+        var segmentLength = _trainPathLengths[index + 1] - _trainPathLengths[index];
+        var t = segmentLength > 0.0001f
+            ? Math.Clamp((distance - _trainPathLengths[index]) / segmentLength, 0f, 1f)
+            : 0f;
+
+        tangent = b - a;
+        return Vector3.Lerp(a, b, t);
+    }
+
+    private void BuildTrainBox()
+    {
+        var position = SamplePath(_trainDistance, out var tangent);
+        var forward = tangent.LengthSquared() > 0.0001f
+            ? Vector3.Normalize(tangent)
+            : Vector3.UnitZ;
+        var right = Vector3.Cross(Vector3.UnitY, forward);
+        right = right.LengthSquared() > 0.0001f
+            ? Vector3.Normalize(right)
+            : Vector3.UnitX;
+
+        var center = position + (Vector3.UnitY * 2.2f);
+        const float halfWidth = 1.8f;
+        const float halfHeight = 1.5f;
+        const float halfLength = 5f;
+
+        Vector3 Corner(float x, float y, float z) =>
+            center + (right * (x * halfWidth)) + (Vector3.UnitY * (y * halfHeight)) +
+            (forward * (z * halfLength));
+
+        var b0 = Corner(-1f, -1f, -1f);
+        var b1 = Corner(1f, -1f, -1f);
+        var b2 = Corner(1f, -1f, 1f);
+        var b3 = Corner(-1f, -1f, 1f);
+        var t0 = Corner(-1f, 1f, -1f);
+        var t1 = Corner(1f, 1f, -1f);
+        var t2 = Corner(1f, 1f, 1f);
+        var t3 = Corner(-1f, 1f, 1f);
+
+        var body = new Color(190, 75, 45);
+        var roof = new Color(235, 170, 70);
+        var cab = new Color(245, 220, 120);
+
+        var index = 0;
+        void Tri(Vector3 a, Vector3 b, Vector3 c, Color color)
+        {
+            _trainVertices[index++] = new VertexPositionColor(a, color);
+            _trainVertices[index++] = new VertexPositionColor(b, color);
+            _trainVertices[index++] = new VertexPositionColor(c, color);
+        }
+
+        Tri(t0, t1, t2, roof);
+        Tri(t0, t2, t3, roof);
+        Tri(b0, b2, b1, body);
+        Tri(b0, b3, b2, body);
+        Tri(b0, b1, t1, body);
+        Tri(b0, t1, t0, body);
+        Tri(b3, t3, t2, cab);
+        Tri(b3, t2, b2, cab);
+        Tri(b0, t0, t3, body);
+        Tri(b0, t3, b3, body);
+        Tri(b1, b2, t2, body);
+        Tri(b1, t2, t1, body);
+    }
+
+    private static float MoveTowards(float current, float target, float maxDelta)
+    {
+        if (MathF.Abs(target - current) <= maxDelta)
+        {
+            return target;
+        }
+
+        return current + (MathF.Sign(target - current) * maxDelta);
     }
 
     private static Vector3 ToLocal(
