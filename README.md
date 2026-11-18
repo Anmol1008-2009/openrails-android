@@ -19,7 +19,7 @@ device/adb details, packaging gotchas, and the next steps.
 | Content parsers: `.trk`, `.tdb`, `.eng`, `.wag`, `.con` | implemented, 17 unit tests |
 | On-device sample-content screen | parses bundled route/TDB/consist from assets |
 | `.s` shape / `.ace` texture parsing | not started |
-| 3D track rendering from `.tdb` | implemented, CI-green; device verification pending |
+| 3D track rendering from `.tdb` | **verified on device**: ground/ballast/rails/markers |
 | Touch/cab controls | not started |
 
 ## Tests
@@ -46,14 +46,13 @@ Actions is billed in **minutes**, and it has a 6-hour per-job cap.
 
 ## Device verification
 
-![Sample content screen on a Motorola Edge 50 Neo](docs/device-content-screen.png)
+![3D track scene built from the sample .tdb](docs/device-track-scene.png)
 
 Verified over `adb` on Android 16 (API 36, `arm64-v8a`): the startup content
-screen parses the bundled `.trk`/`.tdb`/`.con` (`docs/device-content-screen.png`).
-The newer **Start 3D demo** scene builds the track from the `.tdb` vector-section
-positions (ground/ballast/rails/markers); it is CI-green but its device
-screenshot is still pending. The older cube screenshot is `docs/device-running.png`. The app installs, launches, and holds
-~60 fps.
+screen parses the bundled `.trk`/`.tdb`/`.con` (`docs/device-content-screen.png`),
+and **Start 3D demo** renders the track from the `.tdb` vector-section positions
+(`docs/device-track-scene.png`). The older cube screenshot is
+`docs/device-running.png`. The app installs, launches, and holds ~60 fps.
 
 Two packaging traps worth knowing:
 

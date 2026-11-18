@@ -9,25 +9,23 @@ Android port seed for Open Rails. Repo: https://github.com/Anmol1008-2009/openra
 
 ## Current state / resume here
 
-- `main` had reached `bde3048` ("Render data-driven .tdb track in the 3D scene")
-  when this handoff was written.
-- CI run `44244077282` for `bde3048`: **success** (`test` + `apk` jobs).
-- The new APK was downloaded to `/workspace/openrails-latest.apk` (43.6 MB,
-  from that CI run). `/workspace` is the durable copy; `/tmp` downloads may vanish.
-- **Not yet done:** install that APK on the phone and visually verify the new 3D
-  track scene. The phone's wireless debugging dropped before this could happen.
-- Next concrete action: reconnect adb (below), then:
-  ```bash
-  adb uninstall org.openrails.android
-  adb install /workspace/openrails-latest.apk
-  adb shell am start -n org.openrails.android/crc64c40e553b9fef0da3.MainActivity
-  # tap "Start 3D demo" (or after verifying) and screenshot:
-  adb exec-out screencap -p > /tmp/track-scene.png
-  adb shell cat /sdcard/Android/data/org.openrails.android/files/startup.log
-  ```
-  Expected startup log: `Sample content parsed: ... tdbNodes=6 trackSections=7
-  consistVehicles=3` and no crash buffer entries. Save a good screenshot as
-  `docs/device-track-scene.png`, then update README + this file.
+- `main` is at `6def54f` (docs) on top of `bde3048` ("Render data-driven
+  .tdb track in the 3D scene"). CI run `44244077282` for `bde3048`: success.
+- The 3D track scene is now **device-verified**. APK
+  `/workspace/openrails-latest.apk` (43.6 MB) was installed on the phone
+  (wireless debug port `192.168.31.66:45413`), launched, and "Start 3D demo"
+  showed the track built from the sample `.tdb`.
+- Startup log confirmed:
+  `Sample content parsed: ... tdbNodes=6 trackSections=7 consistVehicles=3`,
+  `Game1 created (track from .tdb)`, and
+  `Content screen dismissed; showing 3D track demo`; crash buffer was empty.
+- Screenshot: `docs/device-track-scene.png` (ground grid + ballast + rails +
+  track markers, auto-centered/scaled from the `.tdb`).
+- Next task is **step 3: touch input** (see Next steps). If further renderer
+  polish is wanted, tune the fixed camera at `(105, 95, 130)` and the small
+  scene scale; the geometry and data path are working.
+- If reinstalling: `adb uninstall` first (CI keystore changes), then
+  `adb install /workspace/openrails-latest.apk`.
 
 ## Verified working
 
@@ -37,13 +35,12 @@ Android port seed for Open Rails. Repo: https://github.com/Anmol1008-2009/openra
   assemblies, and that the sample content assets are packaged.
 - On device: Motorola Edge 50 Neo (Android 16 / API 36, arm64-v8a, Mali-G615),
   installed/launched successfully; old cube screenshot `docs/device-running.png`.
-- Sample-content screen is **device-verified** (commit `d039eec`): screenshot
-  `docs/device-content-screen.png`; it parsed `tdbNodes=5 trackSections=5
-  consistVehicles=3` at that time.
-- Since then the sample grew to 6 track nodes / 7 vector sections and `Game1`
-  now renders that data as a track scene. This newer build is CI-green and the
-  APK is at `/workspace/openrails-latest.apk`, but it is **not yet
-  device-verified**.
+- Sample-content screen is device-verified (commit `d039eec`): screenshot
+  `docs/device-content-screen.png`; it parsed the bundled assets.
+- The `.tdb`-driven 3D track scene is **device-verified** (build `bde3048`):
+  startup log `tdbNodes=6 trackSections=7`, tapping **Start 3D demo** logs
+  `Content screen dismissed; showing 3D track demo`, and
+  `docs/device-track-scene.png` shows the rendered track. No crash entries.
 
 ## Non-obvious gotchas (do not regress these)
 
@@ -78,7 +75,8 @@ Android port seed for Open Rails. Repo: https://github.com/Anmol1008-2009/openra
 - Package: `org.openrails.android`
 - Activity: `crc64c40e553b9fef0da3.MainActivity`
 - Phone IP has stayed `192.168.31.66`; **the port changes every time wireless
-  debugging restarts**. Last successful connects: `:46667`, then `:43781`.
+  debugging restarts**. Recent successful connects: `:46667`, `:43781`,
+  `:45413` (latest).
 - Wireless debugging tends to turn off when the phone sleeps/locks. Re-enable
   Settings → Developer options → Wireless debugging. If a pairing code is
   needed, keep the dialog open and:
@@ -148,9 +146,8 @@ adb exec-out screencap -p > screen.png
 1. ~~Load an actual route: wire `RouteFile`/`ConsistFile` into a sample-data
    screen~~ — done; includes `.tdb` track nodes/sections, device-verified.
 2. ~~Replace the cube with a minimal 3D scene driven by `.tdb` vector-section
-   positions~~ — implemented in `bde3048`, CI-green. **Remaining:** install
-   `/workspace/openrails-latest.apk`, verify/screenshot the track scene, then
-   mark this done in README/SESSION.
+   positions~~ — done in `bde3048`; CI-green and **device-verified** with
+   `docs/device-track-scene.png`.
 3. Touch input: multi-touch slider/button overlay writing into an
    `ExternalDeviceState`-style adapter (see handoff doc for Open Rails'
    `WebDeviceState` path).
