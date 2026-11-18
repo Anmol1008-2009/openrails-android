@@ -16,9 +16,10 @@ device/adb details, packaging gotchas, and the next steps.
 | --- | --- |
 | MonoGame + .NET 10 Android app | **verified on device**: launches, renders at ~60 fps (Motorola Edge 50 Neo, Mali-G615, API 36) |
 | GitHub Actions debug APK build | working |
-| Content parsers: `.trk`, `.tdb`, `.eng`, `.wag`, `.con` | implemented, 20 unit tests |
+| Content parsers: `.trk`, `.tdb`, `.eng`, `.wag`, `.con` | implemented, 31 unit tests |
+| Text `.s` shapes + DDS/DXT textures | implemented; local real-add-on parser check |
 | On-device sample-content screen | parses bundled route/TDB/consist from assets |
-| `.s` shape / `.ace` texture parsing | not started |
+| Add-on folder import through SAF | implemented; needs CI/device verification |
 | 3D track rendering from `.tdb` | **verified on device**: ground/ballast/rails/markers |
 | Touch/cab controls | **verified on device**: throttle/brake, direction, moving train |
 
@@ -34,6 +35,18 @@ dotnet run --project tests/OpenRails.Core.Tests/OpenRails.Core.Tests.csproj -c R
 CI runs this in the `test` job on every push, independently of the APK job.
 The same tests parse `samples/` — a synthetic route (`.trk` + `.tdb`) and
 consist — so the data that ships in the APK is validated too.
+
+## Importing MSTS/Open Rails stock
+
+Tap **Import addon folder** on the content screen and grant read access to an
+MSTS/Open Rails folder. The importer reads `.wag` files, resolves the referenced
+text `.s` shape, maps `.ace` references to same-name `.dds` files, decodes the
+textures, and draws the shape on the track.
+
+Select the **parent add-on folder** when the shape references shared textures
+such as `../common/.../foo.dds`; selecting only the stock folder falls back to a
+checker texture for those files. Binary `.s`, native `.ace`, animations, and
+full articulated hierarchy are not supported yet.
 
 ## Build in CI
 
@@ -113,9 +126,9 @@ dotnet build -c Debug -p:AndroidPackageFormat=apk
 
 ## Roadmap to a real port
 
-1. **Content layer** — parse Open Rails route (`*.trk`, track database `*.tdb`),
-   consist, `.eng` / `.wag`, shape (`.s`) and texture (`.ace`) formats into
-   engine-neutral models.
+1. **Content layer** — route (`*.trk`, `*.tdb`), consist, `.eng` / `.wag`, text
+   `.s` and DDS/DXT are in place; binary `.s`, native `.ace`, animations, and
+   shared-texture routing are still to do.
 2. **Renderer** — replace `BasicEffect` with a real 3D pipeline (instanced
    terrain, track, rolling stock). DirectX 9 code does not port; rewrite
    against OpenGL ES 3 / Vulkan.

@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System.Threading;
 using OpenRails.Core.Formats;
 using OpenRails.Core.Simulation;
 
@@ -31,7 +32,11 @@ public sealed class Game1 : Game
     private float _trainSpeed;
     private float _totalPathLength;
 
+    private readonly List<ShapePart> _shapeParts = new();
     private BasicEffect _effect = null!;
+    private BasicEffect _shapeEffect = null!;
+    private Texture2D? _fallbackTexture;
+    private ImportedAddon? _pendingAddon;
     private VertexBuffer _surfaceBuffer = null!;
     private VertexBuffer _lineBuffer = null!;
     private int _surfacePrimitiveCount;
@@ -59,20 +64,41 @@ public sealed class Game1 : Game
             LightingEnabled = false,
         };
 
+        _shapeEffect = new BasicEffect(GraphicsDevice)
+        {
+            TextureEnabled = true,
+            VertexColorEnabled = false,
+            LightingEnabled = false,
+        };
+
         BuildScene();
     }
 
     protected override void UnloadContent()
     {
+        ClearShape();
+        _fallbackTexture?.Dispose();
+        _fallbackTexture = null;
         _surfaceBuffer?.Dispose();
         _lineBuffer?.Dispose();
         _effect?.Dispose();
+        _shapeEffect?.Dispose();
         base.UnloadContent();
     }
+
+    /// <summary>Queues a shape for upload on the game thread.</summary>
+    public void SetImportedShape(ImportedAddon addon) =>
+        Interlocked.Exchange(ref _pendingAddon, addon);
 
     protected override void Update(GameTime gameTime)
     {
         var dt = MathF.Min((float)gameTime.ElapsedGameTime.TotalSeconds, 0.1f);
+
+        var pending = Interlocked.Exchange(ref _pendingAddon, null);
+        if (pending is not null)
+        {
+            BuildShape(pending);
+        }
 
         if (_totalPathLength > 0f)
         {
@@ -113,7 +139,17 @@ public sealed class Game1 : Game
 
         var aspect = GraphicsDevice.Viewport.AspectRatio;
         _effect.World = Matrix.Identity;
-        _effect.View = Matrix.CreateLookAt(new Vector3(105f, 95f, 130f), Vector3.Zero, Vector3.Up);
+        if (_shapeParts.Count > 0 && _trainPath.Count >= 2)
+        {
+            var target = SamplePath(_trainDistance, out _) + (Vector3.UnitY * 1.5f);
+            _effect.View = Matrix.CreateLookAt(
+                target + new Vector3(16f, 9f, 20f), target, Vector3.Up);
+        }
+        else
+        {
+            _effect.View = Matrix.CreateLookAt(new Vector3(105f, 95f, 130f), Vector3.Zero, Vector3.Up);
+        }
+
         _effect.Projection = Matrix.CreatePerspectiveFieldOfView(MathHelper.PiOver4, aspect, 0.1f, 2000f);
 
         GraphicsDevice.SetVertexBuffer(_surfaceBuffer);
@@ -136,7 +172,11 @@ public sealed class Game1 : Game
             }
         }
 
-        if (_trainPath.Count >= 2)
+        if (_shapeParts.Count > 0 && _trainPath.Count >= 2)
+        {
+            DrawShape();
+        }
+        else if (_trainPath.Count >= 2)
         {
             BuildTrainBox();
             foreach (var pass in _effect.CurrentTechnique.Passes)
@@ -334,6 +374,105 @@ public sealed class Game1 : Game
         }
     }
 
+    private void BuildShape(ImportedAddon addon)
+    {
+        ClearShape();
+        _fallbackTexture ??= CreateFallbackTexture();
+
+        var center = (addon.Shape.BoundsMin + addon.Shape.BoundsMax) * 0.5f;
+        var bottom = addon.Shape.BoundsMin.Y;
+
+        foreach (var group in addon.Shape.PrimitiveGroups)
+        {
+            if (group.Vertices.Count < 3)
+            {
+                continue;
+            }
+
+            var vertices = new VertexPositionTexture[group.Vertices.Count];
+            for (var i = 0; i < group.Vertices.Count; i++)
+            {
+                var vertex = group.Vertices[i];
+                vertices[i] = new VertexPositionTexture(
+                    new Vector3(vertex.Position.X - center.X, vertex.Position.Y - bottom,
+                        vertex.Position.Z - center.Z),
+                    vertex.TextureCoordinate);
+            }
+
+            var buffer = new VertexBuffer(
+                GraphicsDevice,
+                typeof(VertexPositionTexture),
+                vertices.Length,
+                BufferUsage.WriteOnly);
+            buffer.SetData(vertices);
+
+            Texture2D texture;
+            var ownsTexture = false;
+            if (group.TextureIndex >= 0 &&
+                group.TextureIndex < addon.Textures.Count &&
+                addon.Textures[group.TextureIndex] is { } image)
+            {
+                texture = new Texture2D(GraphicsDevice, image.Width, image.Height);
+                texture.SetData(image.Pixels);
+                ownsTexture = true;
+            }
+            else
+            {
+                texture = _fallbackTexture;
+            }
+
+            _shapeParts.Add(new ShapePart(buffer, texture, vertices.Length / 3, ownsTexture));
+        }
+    }
+
+    private void DrawShape()
+    {
+        var position = SamplePath(_trainDistance, out var tangent);
+        var yaw = MathF.Atan2(tangent.X, tangent.Z);
+        var world = Matrix.CreateRotationY(yaw) *
+                    Matrix.CreateTranslation(position + (Vector3.UnitY * 0.15f));
+
+        _shapeEffect.View = _effect.View;
+        _shapeEffect.Projection = _effect.Projection;
+        GraphicsDevice.SamplerStates[0] = SamplerState.LinearClamp;
+        GraphicsDevice.BlendState = BlendState.AlphaBlend;
+
+        foreach (var part in _shapeParts)
+        {
+            _shapeEffect.World = world;
+            _shapeEffect.Texture = part.Texture;
+            foreach (var pass in _shapeEffect.CurrentTechnique.Passes)
+            {
+                pass.Apply();
+                GraphicsDevice.SetVertexBuffer(part.Buffer);
+                GraphicsDevice.DrawPrimitives(PrimitiveType.TriangleList, 0, part.PrimitiveCount);
+            }
+        }
+
+        GraphicsDevice.BlendState = BlendState.Opaque;
+    }
+
+    private void ClearShape()
+    {
+        foreach (var part in _shapeParts)
+        {
+            part.Dispose();
+        }
+
+        _shapeParts.Clear();
+    }
+
+    private Texture2D CreateFallbackTexture()
+    {
+        var texture = new Texture2D(GraphicsDevice, 2, 2);
+        texture.SetData(new[]
+        {
+            new Color(140, 40, 120), new Color(40, 40, 40),
+            new Color(40, 40, 40), new Color(140, 40, 120),
+        });
+        return texture;
+    }
+
     private void BuildTrainPath(
         float centerX,
         float centerY,
@@ -488,5 +627,33 @@ public sealed class Game1 : Game
     {
         vertices.Add(new VertexPositionColor(a, color));
         vertices.Add(new VertexPositionColor(b, color));
+    }
+
+    private sealed class ShapePart : IDisposable
+    {
+        private readonly bool _ownsTexture;
+
+        public ShapePart(VertexBuffer buffer, Texture2D texture, int primitiveCount, bool ownsTexture)
+        {
+            Buffer = buffer;
+            Texture = texture;
+            PrimitiveCount = primitiveCount;
+            _ownsTexture = ownsTexture;
+        }
+
+        public VertexBuffer Buffer { get; }
+
+        public Texture2D Texture { get; }
+
+        public int PrimitiveCount { get; }
+
+        public void Dispose()
+        {
+            Buffer.Dispose();
+            if (_ownsTexture)
+            {
+                Texture.Dispose();
+            }
+        }
     }
 }

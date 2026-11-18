@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Threading.Tasks;
 using Android.App;
 using Android.Content;
 using Android.Content.PM;
@@ -26,7 +27,13 @@ namespace OpenRails.Android;
 public class MainActivity : AndroidGameActivity
 {
     private const string Tag = "OpenRailsAndroid";
+    private const int ImportFolderRequest = 2001;
     private string _logPath = string.Empty;
+    private Game1? _game;
+    private FrameLayout? _host;
+    private TrainControlState? _controls;
+    private View? _contentOverlay;
+    private View? _controlOverlay;
 
     protected override void OnCreate(Bundle? savedInstanceState)
     {
@@ -51,6 +58,8 @@ public class MainActivity : AndroidGameActivity
 
             var controls = new TrainControlState();
             var game = new Game1(sample.TrackDatabase, controls);
+            _game = game;
+            _controls = controls;
             Trace("Game1 created (track from .tdb)");
 
             if (game.Services.GetService(typeof(View)) is not View gameView)
@@ -61,21 +70,18 @@ public class MainActivity : AndroidGameActivity
             }
 
             var host = new FrameLayout(this);
+            _host = host;
             host.AddView(gameView, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
 
             View overlay = null!;
             overlay = ContentScreen.Build(this, sample, () =>
             {
-                host.RemoveView(overlay);
-                var cabParams = new FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent)
-                {
-                    Gravity = GravityFlags.Bottom,
-                };
-                host.AddView(new ControlOverlay(this, controls), cabParams);
+                DismissContentScreen();
+                ShowControls();
                 Trace("Content screen dismissed; showing 3D track demo with cab controls");
-            });
+            }, BeginImport);
+            _contentOverlay = overlay;
             host.AddView(overlay, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
 
@@ -90,6 +96,93 @@ public class MainActivity : AndroidGameActivity
             Trace("FATAL: " + ex);
             ShowError(ex.ToString());
         }
+    }
+
+    private void BeginImport()
+    {
+        var intent = new Intent(Intent.ActionOpenDocumentTree);
+        intent.AddFlags(ActivityFlags.GrantReadUriPermission | ActivityFlags.GrantPersistableUriPermission);
+        StartActivityForResult(intent, ImportFolderRequest);
+    }
+
+    protected override void OnActivityResult(int requestCode, Result resultCode, Intent? data)
+    {
+        base.OnActivityResult(requestCode, resultCode, data);
+        if (requestCode != ImportFolderRequest || resultCode != Result.Ok)
+        {
+            return;
+        }
+
+        var uri = data?.Data;
+        if (uri is null)
+        {
+            return;
+        }
+
+        try
+        {
+            ContentResolver?.TakePersistableUriPermission(uri, ActivityFlags.GrantReadUriPermission);
+        }
+        catch (Exception ex)
+        {
+            Trace("Could not persist folder permission: " + ex.Message);
+        }
+
+        Trace("Importing addon from " + uri);
+        Toast.MakeText(this, "Importing add-on...", ToastLength.Short)?.Show();
+
+        Task.Run(() =>
+        {
+            try
+            {
+                var addon = AddonImporter.Load(this, uri, message => Trace("IMPORT: " + message));
+                RunOnUiThread(() => OnAddonLoaded(addon));
+            }
+            catch (Exception ex)
+            {
+                Trace("IMPORT FAILED: " + ex);
+                RunOnUiThread(() =>
+                    Toast.MakeText(this, "Import failed: " + ex.Message, ToastLength.Long)?.Show());
+            }
+        });
+    }
+
+    private void OnAddonLoaded(ImportedAddon addon)
+    {
+        Trace("Addon loaded: '" + addon.Name + "' shape=" + addon.ShapePath +
+              " triangles=" + addon.Shape.TriangleCount + " textures=" + addon.Textures.Count);
+        _game?.SetImportedShape(addon);
+        DismissContentScreen();
+        ShowControls();
+        Toast.MakeText(
+            this,
+            addon.Name + " loaded (" + addon.Shape.TriangleCount + " triangles)",
+            ToastLength.Short)?.Show();
+    }
+
+    private void DismissContentScreen()
+    {
+        if (_contentOverlay is not null && _host is not null)
+        {
+            _host.RemoveView(_contentOverlay);
+            _contentOverlay = null;
+        }
+    }
+
+    private void ShowControls()
+    {
+        if (_controlOverlay is not null || _host is null || _controls is null)
+        {
+            return;
+        }
+
+        var cabParams = new FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent)
+        {
+            Gravity = GravityFlags.Bottom,
+        };
+        _controlOverlay = new ControlOverlay(this, _controls);
+        _host.AddView(_controlOverlay, cabParams);
     }
 
     private void Trace(string message)

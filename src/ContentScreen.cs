@@ -17,7 +17,11 @@ public static class ContentScreen
     private static readonly Color Muted = Color.ParseColor("#7F93A6");
     private static readonly Color Body = Color.ParseColor("#DCE6EF");
 
-    public static View Build(Context context, SampleContent content, Action onContinue)
+    public static View Build(
+        Context context,
+        SampleContent content,
+        Action onContinue,
+        Action onImport)
     {
         var root = new LinearLayout(context) { Orientation = Orientation.Vertical };
         root.SetBackgroundColor(Background);
@@ -49,6 +53,11 @@ public static class ContentScreen
         scroll.AddView(body);
         root.AddView(scroll, new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MatchParent, 0, 1f));
+
+        var importButton = new Button(context) { Text = "Import addon folder" };
+        importButton.Click += (_, _) => onImport();
+        root.AddView(importButton, new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent));
 
         var continueButton = new Button(context) { Text = "Start 3D demo" };
         continueButton.Click += (_, _) => onContinue();

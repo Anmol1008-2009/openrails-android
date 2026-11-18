@@ -9,7 +9,8 @@ Android port seed for Open Rails. Repo: https://github.com/Anmol1008-2009/openra
 
 ## Current state / resume here
 
-- `main` is at `b61ca26` ("Add touch cab controls and a moving train"). CI run
+- `main` is at `846e0d5` ("Device-verify cab controls and train motion").
+  Last code build `b61ca26`; CI run
   `44246078153`: success; APK saved as `/workspace/openrails-latest.apk`.
 - Cab controls + moving train are **device-verified**. The APK was installed
   on the phone (wireless debug `192.168.31.66:45413`), launched, **Start 3D
@@ -21,15 +22,22 @@ Android port seed for Open Rails. Repo: https://github.com/Anmol1008-2009/openra
   button, all writing into `OpenRails.Core.Simulation.TrainControlState`.
   `Game1` integrates throttle/brake into speed and moves a simple box
   locomotive along the longest `.tdb` vector-section polyline.
-- Next task is **step 4: camera controls**, then rolling-stock shapes (`.s`) /
-  textures (`.ace`). The camera is still fixed at `(105, 95, 130)`.
+- Uncommitted work adds the real add-on path: `.wag` discovery, SAF folder
+  scanning, text `.s` parsing, DDS/DXT decoding, and textured shape rendering.
+  The local parser was validated against the supplied BVZ caboose add-on:
+  25,514 points, 34,917 UVs, 4 textures, 7 matrices, 39,484 triangles; bogies
+  and wheels land at sensible `z` extents after BOGIE/WHEELS matrix composition.
+- Next task is **CI-build, then device-verify the imported caboose**: select the
+  add-on folder through SAF, check orientation/textures, then finish camera
+  controls.
 - If reinstalling: `adb uninstall` first (CI keystore changes), then
   `adb install /workspace/openrails-latest.apk`.
 
 ## Verified working
 
-- `test` job: 20 xunit v3 tests pass (MSTS tokenizer/parser, `.trk`/`.tdb`/`.eng`/
-  `.wag`/`.con` readers, plus the bundled sample route/consist).
+- `test` job: 31 xunit v3 tests pass (MSTS tokenizer/parser, `.trk`/`.tdb`/`.eng`/
+  `.wag`/`.con` readers, shape parser, DDS decoder, plus the bundled sample
+  route/consist). Local real-shape parse: ~0.4 s desktop.
 - `apk` job: builds a self-contained debug APK, verifies manifest, embedded
   assemblies, and that the sample content assets are packaged.
 - On device: Motorola Edge 50 Neo (Android 16 / API 36, arm64-v8a, Mali-G615),
@@ -61,13 +69,18 @@ Android port seed for Open Rails. Repo: https://github.com/Anmol1008-2009/openra
 7. MSTS track geometry is **not** in `.trk`. `.trk` holds `RouteID`, `Name`,
    `FileName`, `RouteStart`, etc.; `TrackNode`/`TrVectorSection` data is in the
    route's `.tdb` (same base name as `.trk`). Do not look for TrackNode in `.trk`.
-8. The namespace `OpenRails.Android` shadows the global `Android` namespace.
+8. SAF child queries expose `document_id`, **not** `_id`; querying for `_id`
+   makes `GetColumnIndexOrThrow` fail on device.
+9. In text `.s` files the value in `primitives ( n )` is the number of blocks,
+   i.e. **two blocks per primitive** (`prim_state_idx` + `indexed_trilist`).
+   Looping `n` times walks into later sub-objects and corrupts bounds.
+10. The namespace `OpenRails.Android` shadows the global `Android` namespace.
    `Android.Util.X` becomes `OpenRails.Android.Util.X` and fails to compile.
    Add `using Android.Util;` / `using Android.Graphics;` and use the short type
    name, or prefix with `global::Android...`. (CI caught this once.)
-9. Startup order matters: `MainActivity` now loads `SampleContent` first, then
+11. Startup order matters: `MainActivity` now loads `SampleContent` first, then
    constructs `new Game1(sample.TrackDatabase)`. Keep it that way.
-10. CI Android builds work only in CI here: local JDK is broken under proot
+12. CI Android builds work only in CI here: local JDK is broken under proot
     ("Failed to mark memory page as executable") and no Android SDK/workload is
     installed. Use `git push` -> GitHub Actions -> `gh run download`.
 
@@ -130,14 +143,20 @@ adb exec-out screencap -p > screen.png
   clipboard/Downloads log export.
 - `src/Game1.cs` — **data-driven 3D track + moving train**: centers/scales `.tdb`
   points, draws ground/ballast/rails/markers, integrates throttle/brake into
-  speed, and draws a box locomotive along the longest vector-section polyline.
+  speed, and draws either a box locomotive or an imported textured shape along
+  the longest vector-section polyline.
+- `src/AddonImporter.cs` — resolves `.wag` → `.s` → `.ace`/`.dds`, decodes
+  textures, returns `ImportedAddon`.
+- `src/SafFolder.cs` — recursive `ActionOpenDocumentTree` scan with MSTS-style
+  `../` path resolution.
 - `src/ControlOverlay.cs` — bottom cab strip: throttle/brake `SeekBar`s,
   direction button, and live speed/status readout.
 - `src/SampleContent.cs` — loads bundled `.trk`/`.tdb`/`.con` and builds the summary.
 - `src/ContentScreen.cs` — on-device sample-content screen (Android views, no 3D).
 - `core/OpenRails.Core/` — portable MSTS parsing: `Msts/MstsTokenizer.cs`,
   `Msts/MstsParser.cs`, `Msts/MstsBlock.cs`,
-  `Formats/{Route,TrackDatabase,Engine,Wagon,Consist}File.cs`;
+  `Formats/{Route,TrackDatabase,Engine,Wagon,Consist}File.cs`,
+  `Formats/ShapeFile.cs` (text `.s`), `Formats/DdsImage.cs` (DXT1/3/5);
   `Simulation/TrainControlState.cs` (portable cab-control state).
 - `samples/` — synthetic, GPL-safe content: `SampleRoute/SampleRoute.trk`,
   `SampleRoute/SampleRoute.tdb` (6 nodes, 7 vector sections, curved main +
@@ -156,15 +175,18 @@ adb exec-out screencap -p > screen.png
 3. ~~Touch input: slider/button overlay writing into a portable control
    adapter~~ — done in `b61ca26`; `TrainControlState` + `ControlOverlay`,
    device-verified with a moving train.
-4. Camera controls, then rolling stock shapes (`.s`) / textures (`.ace`).
+4. Imported rolling stock: `.s` + `.dds`/`.ace` path is implemented locally;
+   CI-build and device-verify, then add camera controls.
 5. Only after that: port simulation/sound. Note Open Rails is GPLv3 — keep this
    repo GPLv3 and publish source.
 
 ## Open questions / risks
 
 - MonoGame on net10 is newer than its release matrix; watch for runtime issues.
-- The 3D scene camera is currently fixed at `(105, 95, 130)` looking at origin;
-  camera input is the next task. Train speed is scaled scene units, not real MSTS
+- The scene camera follows the imported shape at a fixed offset; user camera
+  input is still the next task. Train speed is scaled scene units, not real MSTS
   physics.
+- The parser currently handles text `.s` files and the first LOD. Binary `.s`,
+  `.ace` decoding, animations, and full hierarchy are still unsupported.
 - No automated UI test possible (no emulator); device testing is manual via adb.
 - Apache/MST S content is copyrighted — do not commit route/stock assets.

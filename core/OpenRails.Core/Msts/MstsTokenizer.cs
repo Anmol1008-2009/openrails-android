@@ -27,6 +27,9 @@ public sealed class MstsTokenizer
         }
     }
 
+    /// <summary>Reads the next token without materialising the full token list.</summary>
+    public MstsToken? ReadToken() => NextToken();
+
     private MstsToken? NextToken()
     {
         SkipTrivia();
