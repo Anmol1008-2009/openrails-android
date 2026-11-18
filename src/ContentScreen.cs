@@ -1,5 +1,6 @@
 using Android.Content;
 using Android.Graphics;
+using Android.Util;
 using Android.Views;
 using Android.Widget;
 
@@ -23,7 +24,7 @@ public static class ContentScreen
         root.SetPadding(Dp(context, 24), Dp(context, 20), Dp(context, 24), Dp(context, 20));
 
         var title = new TextView(context) { Text = "Open Rails - sample content" };
-        title.SetTextSize(Android.Util.ComplexUnitType.Sp, 22f);
+        title.SetTextSize(ComplexUnitType.Sp, 22f);
         title.SetTypeface(Typeface.Default, TypefaceStyle.Bold);
         title.SetTextColor(Accent);
         root.AddView(title);
@@ -32,13 +33,13 @@ public static class ContentScreen
         {
             Text = "MSTS route, track database and consist parsed on this device.",
         };
-        subtitle.SetTextSize(Android.Util.ComplexUnitType.Sp, 12f);
+        subtitle.SetTextSize(ComplexUnitType.Sp, 12f);
         subtitle.SetTextColor(Muted);
         subtitle.SetPadding(0, Dp(context, 2), 0, Dp(context, 10));
         root.AddView(subtitle);
 
         var body = new TextView(context) { Text = content.BuildSummary() };
-        body.SetTextSize(Android.Util.ComplexUnitType.Sp, 12f);
+        body.SetTextSize(ComplexUnitType.Sp, 12f);
         body.SetTypeface(Typeface.Monospace, TypefaceStyle.Normal);
         body.SetTextColor(Body);
         body.SetTextIsSelectable(true);

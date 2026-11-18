@@ -56,7 +56,7 @@ public class MainActivity : AndroidGameActivity
             host.AddView(gameView, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
 
-            var sample = SampleContent.Load(Assets);
+            var sample = SampleContent.Load(Assets!);
             Trace("Sample content parsed: route='" + sample.Route.Name + "' tdbNodes=" +
                   sample.TrackDatabase.TrackNodes.Count + " trackSections=" +
                   sample.TrackDatabase.TrackSectionPositions.Count + " consistVehicles=" +
