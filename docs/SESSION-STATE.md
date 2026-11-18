@@ -9,27 +9,26 @@ Android port seed for Open Rails. Repo: https://github.com/Anmol1008-2009/openra
 
 ## Current state / resume here
 
-- `main` is at `6def54f` (docs) on top of `bde3048` ("Render data-driven
-  .tdb track in the 3D scene"). CI run `44244077282` for `bde3048`: success.
-- The 3D track scene is now **device-verified**. APK
-  `/workspace/openrails-latest.apk` (43.6 MB) was installed on the phone
-  (wireless debug port `192.168.31.66:45413`), launched, and "Start 3D demo"
-  showed the track built from the sample `.tdb`.
-- Startup log confirmed:
-  `Sample content parsed: ... tdbNodes=6 trackSections=7 consistVehicles=3`,
-  `Game1 created (track from .tdb)`, and
-  `Content screen dismissed; showing 3D track demo`; crash buffer was empty.
-- Screenshot: `docs/device-track-scene.png` (ground grid + ballast + rails +
-  track markers, auto-centered/scaled from the `.tdb`).
-- Next task is **step 3: touch input** (see Next steps). If further renderer
-  polish is wanted, tune the fixed camera at `(105, 95, 130)` and the small
-  scene scale; the geometry and data path are working.
+- `main` is at `b61ca26` ("Add touch cab controls and a moving train"). CI run
+  `44246078153`: success; APK saved as `/workspace/openrails-latest.apk`.
+- Cab controls + moving train are **device-verified**. The APK was installed
+  on the phone (wireless debug `192.168.31.66:45413`), launched, **Start 3D
+  demo** tapped, and throttle set to ~53%: status showed `86 km/h` and the
+  orange locomotive moved along the sample track. No crash entries.
+- Screenshots: `docs/device-track-scene.png` (static track) and
+  `docs/device-cab-controls.png` (controls + moving train + speed readout).
+- Controls: bottom strip with throttle/brake `SeekBar`s and a `Dir: Fwd/Rev`
+  button, all writing into `OpenRails.Core.Simulation.TrainControlState`.
+  `Game1` integrates throttle/brake into speed and moves a simple box
+  locomotive along the longest `.tdb` vector-section polyline.
+- Next task is **step 4: camera controls**, then rolling-stock shapes (`.s`) /
+  textures (`.ace`). The camera is still fixed at `(105, 95, 130)`.
 - If reinstalling: `adb uninstall` first (CI keystore changes), then
   `adb install /workspace/openrails-latest.apk`.
 
 ## Verified working
 
-- `test` job: 17 xunit v3 tests pass (MSTS tokenizer/parser, `.trk`/`.tdb`/`.eng`/
+- `test` job: 20 xunit v3 tests pass (MSTS tokenizer/parser, `.trk`/`.tdb`/`.eng`/
   `.wag`/`.con` readers, plus the bundled sample route/consist).
 - `apk` job: builds a self-contained debug APK, verifies manifest, embedded
   assemblies, and that the sample content assets are packaged.
@@ -38,9 +37,11 @@ Android port seed for Open Rails. Repo: https://github.com/Anmol1008-2009/openra
 - Sample-content screen is device-verified (commit `d039eec`): screenshot
   `docs/device-content-screen.png`; it parsed the bundled assets.
 - The `.tdb`-driven 3D track scene is **device-verified** (build `bde3048`):
-  startup log `tdbNodes=6 trackSections=7`, tapping **Start 3D demo** logs
-  `Content screen dismissed; showing 3D track demo`, and
-  `docs/device-track-scene.png` shows the rendered track. No crash entries.
+  startup log `tdbNodes=6 trackSections=7`; screenshot
+  `docs/device-track-scene.png`.
+- Touch cab controls and train motion are **device-verified** (build `b61ca26`):
+  moving the throttle slider logs no errors, updates the speed readout, and the
+  locomotive moves along the track (`docs/device-cab-controls.png`).
 
 ## Non-obvious gotchas (do not regress these)
 
@@ -125,15 +126,19 @@ adb exec-out screencap -p > screen.png
 ## Code layout
 
 - `src/MainActivity.cs` — activity, startup tracing, load sample content, create
-  `Game1`, clipboard/Downloads log export.
-- `src/Game1.cs` — **data-driven 3D track viewer**: centers/scales `.tdb` world
-  points, draws ground grid, ballast ribbons, rails, centerline, and end/junction
-  markers using `BasicEffect` + `VertexPositionColor`.
+  `Game1` + `TrainControlState`, add the cab overlay after the content screen,
+  clipboard/Downloads log export.
+- `src/Game1.cs` — **data-driven 3D track + moving train**: centers/scales `.tdb`
+  points, draws ground/ballast/rails/markers, integrates throttle/brake into
+  speed, and draws a box locomotive along the longest vector-section polyline.
+- `src/ControlOverlay.cs` — bottom cab strip: throttle/brake `SeekBar`s,
+  direction button, and live speed/status readout.
 - `src/SampleContent.cs` — loads bundled `.trk`/`.tdb`/`.con` and builds the summary.
 - `src/ContentScreen.cs` — on-device sample-content screen (Android views, no 3D).
 - `core/OpenRails.Core/` — portable MSTS parsing: `Msts/MstsTokenizer.cs`,
   `Msts/MstsParser.cs`, `Msts/MstsBlock.cs`,
-  `Formats/{Route,TrackDatabase,Engine,Wagon,Consist}File.cs`.
+  `Formats/{Route,TrackDatabase,Engine,Wagon,Consist}File.cs`;
+  `Simulation/TrainControlState.cs` (portable cab-control state).
 - `samples/` — synthetic, GPL-safe content: `SampleRoute/SampleRoute.trk`,
   `SampleRoute/SampleRoute.tdb` (6 nodes, 7 vector sections, curved main +
   branch), `SampleConsist.con`. Packaged as Android assets.
@@ -148,9 +153,9 @@ adb exec-out screencap -p > screen.png
 2. ~~Replace the cube with a minimal 3D scene driven by `.tdb` vector-section
    positions~~ — done in `bde3048`; CI-green and **device-verified** with
    `docs/device-track-scene.png`.
-3. Touch input: multi-touch slider/button overlay writing into an
-   `ExternalDeviceState`-style adapter (see handoff doc for Open Rails'
-   `WebDeviceState` path).
+3. ~~Touch input: slider/button overlay writing into a portable control
+   adapter~~ — done in `b61ca26`; `TrainControlState` + `ControlOverlay`,
+   device-verified with a moving train.
 4. Camera controls, then rolling stock shapes (`.s`) / textures (`.ace`).
 5. Only after that: port simulation/sound. Note Open Rails is GPLv3 — keep this
    repo GPLv3 and publish source.
@@ -159,6 +164,7 @@ adb exec-out screencap -p > screen.png
 
 - MonoGame on net10 is newer than its release matrix; watch for runtime issues.
 - The 3D scene camera is currently fixed at `(105, 95, 130)` looking at origin;
-  adjust after seeing the device screenshot.
+  camera input is the next task. Train speed is scaled scene units, not real MSTS
+  physics.
 - No automated UI test possible (no emulator); device testing is manual via adb.
 - Apache/MST S content is copyrighted — do not commit route/stock assets.
