@@ -46,12 +46,12 @@ Actions is billed in **minutes**, and it has a 6-hour per-job cap.
 
 ## Device verification
 
-![Running on a Motorola Edge 50 Neo](docs/device-running.png)
+![Sample content screen on a Motorola Edge 50 Neo](docs/device-content-screen.png)
 
-Verified over `adb` on Android 16 (API 36, `arm64-v8a`): installs, launches,
-renders, and holds ~60 fps (screenshot predates the content screen). Startup now
-opens the sample-content screen first; tap **Start 3D demo** to reveal the
-MonoGame cube.
+Verified over `adb` on Android 16 (API 36, `arm64-v8a`): the startup content
+screen parses the bundled `.trk`/`.tdb`/`.con`, and **Start 3D demo** shows the
+MonoGame cube (`docs/device-running.png`). The app installs, launches, and holds
+~60 fps.
 
 Two packaging traps worth knowing:
 

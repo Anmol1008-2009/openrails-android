@@ -19,8 +19,9 @@ Android port seed for Open Rails. Repo: https://github.com/Anmol1008-2009/openra
 - Startup now opens a **sample-content screen** (no 3D): it parses the bundled
   `.trk`, `.tdb`, and `.con` from assets and shows route metadata, track-node
   counts/positions, and the consist. "Start 3D demo" reveals the MonoGame cube.
-  Implemented and covered by tests; **not yet device-verified** (no adb device
-  was reachable on 2026-11-18).
+  Device-verified 2026-11-18 on the same phone: screenshot
+  `docs/device-content-screen.png`; startup log reports
+  `tdbNodes=5 trackSections=5 consistVehicles=3`.
 
 ## Non-obvious gotchas (do not regress these)
 
@@ -46,8 +47,14 @@ Android port seed for Open Rails. Repo: https://github.com/Anmol1008-2009/openra
 - Package: `org.openrails.android`
 - Activity: `crc64c40e553b9fef0da3.MainActivity`
 - Wireless-debugging connect address (changes when wireless debugging restarts):
-  `192.168.31.66:35541` — re-pair if it drops: Settings → Developer options →
-  Wireless debugging → Pair with code, then `adb pair HOST:PORT CODE`.
+  last used `192.168.31.66:37411` — re-pair if it drops: Settings → Developer
+  options → Wireless debugging → Pair with code, then
+  `adb pair HOST:PAIRPORT CODE`. The pairing port is different from the connect
+  port shown on the main Wireless-debugging screen.
+- `adb mdns` is unavailable in this adb build (`unknown host service 'mdns:...'`).
+  To rediscover the connect port, send an mDNS query for
+  `_adb-tls-connect._tcp.local` to `224.0.0.251:5353` and read the SRV record
+  port; it worked from inside this PRoot container.
 - Pairing socket closes the moment the pairing dialog is dismissed, so the port
   must come from an open dialog (split-screen or a second device helps).
 - Runtime log on device: `/sdcard/Android/data/org.openrails.android/files/startup.log`
